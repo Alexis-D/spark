@@ -29,6 +29,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -102,12 +106,15 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
   @Parameterized.Parameters
   public static Object[][] parameters() {
     return new Object[][]{
-        new Object[]{ShuffleStorageStrategy.BASIC},
-        new Object[]{ShuffleStorageStrategy.MERGING}
+        new Object[]{ShuffleStorageStrategy.BASIC, false},
+        new Object[]{ShuffleStorageStrategy.MERGING, false},
+        new Object[]{ShuffleStorageStrategy.BASIC, true},
+        new Object[]{ShuffleStorageStrategy.MERGING, true}
     };
   }
 
   private final ShuffleStorageStrategy storageStrategy;
+  private final boolean encrypt;
 
   @Mock
   private SparkEnv sparkEnv;
@@ -154,12 +161,13 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
   private RpcEndpointRef shuffleDriverEndpointRef;
   private ShuffleStorageStateTracker shuffleStorageStateTracker;
 
-  public HadoopAsyncShuffleExecutorComponentsEteTest(ShuffleStorageStrategy storageStrategy) {
+  public HadoopAsyncShuffleExecutorComponentsEteTest(ShuffleStorageStrategy storageStrategy, boolean encrypt) {
     this.storageStrategy = storageStrategy;
+    this.encrypt = encrypt;
   }
 
   @Before
-  public void before() throws IOException {
+  public void before() throws IOException, NoSuchAlgorithmException {
     MockitoAnnotations.initMocks(this);
     this.uploadExecutorService = new DeterministicScheduler();
     this.downloadExecutorService = Executors.newSingleThreadExecutor(
@@ -173,6 +181,25 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
         .set(AsyncShuffleDataIoSparkConfigs.STORAGE_STRATEGY(), storageStrategy.value())
         .set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_APP_NAME_CONF, "spark-app")
         .set("spark.local.dir", tempFolder.newFolder().getAbsolutePath());
+
+    if (encrypt) {
+      sparkConf.set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_ENABLED, "true");
+      KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+      keyPairGenerator.initialize(2048);
+      KeyPair keyPair = keyPairGenerator.genKeyPair();
+
+      Path publicKeyPath = tempFolder.newFile("public.key").toPath();
+      Path privateKeyPath = tempFolder.newFile("private.key").toPath();
+
+      Files.write(publicKeyPath, keyPair.getPublic().getEncoded(), StandardOpenOption.WRITE);
+      Files.write(privateKeyPath, keyPair.getPrivate().getEncoded(), StandardOpenOption.WRITE);
+
+      sparkConf.set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_PUBLIC_KEY_PATH, publicKeyPath.toString());
+      sparkConf.set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_PRIVATE_KEY_PATH, privateKeyPath.toString());
+    } else {
+      sparkConf.set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_ENABLED, "false");
+    }
+
     this.shuffleFileLocator = new TestShuffleFileLocator(localShuffleDir);
     ShuffleExecutorComponents delegateTestComponents = new TestShuffleExecutorComponents(
         shuffleFileLocator, MAPPER_LOCATION);

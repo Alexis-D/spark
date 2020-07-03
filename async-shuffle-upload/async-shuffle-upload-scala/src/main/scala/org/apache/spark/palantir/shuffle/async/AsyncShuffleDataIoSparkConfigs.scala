@@ -41,6 +41,32 @@ object AsyncShuffleDataIoSparkConfigs {
     .doc("Application name to use for tagging shuffle files.")
     .fallbackConf(APP_NAME_DEPRECATED)
 
+  val ENCRYPTION_ENABLED = ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_ENABLED)
+    .doc("Whether to enable client side encryption of shuffle files before uploading them to " +
+      "remote storage")
+    .booleanConf
+    .createWithDefault(false)
+
+  val ENCRYPTION_ALGORITHM =
+    ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_ALGORITHM)
+      .doc("Public/private key pair algorithm")
+      .stringConf
+      .createWithDefault("RSA")
+
+  val ENCRYPTION_PUBLIC_KEY_PATH =
+    ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_PUBLIC_KEY_PATH)
+      .doc("Path to the X.509 encoded public key used to encrypt shuffle files before upload to " +
+        "remote storage")
+      .stringConf
+      .createOptional
+
+  val ENCRYPTION_PRIVATE_KEY_PATH =
+    ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_PRIVATE_KEY_PATH)
+      .doc("Path to the PKCS#8 encoded private key used to decrypt shuffle files when downloaded " +
+        "from remote storage")
+      .stringConf
+      .createOptional
+
   val S3A_CREDS_FILE_DEPRECATED =
     ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_S3A_CREDS_FILE_CONF_DEPRECATED)
       .doc("Deprecated version of configuration pointing to s3 credentials.")

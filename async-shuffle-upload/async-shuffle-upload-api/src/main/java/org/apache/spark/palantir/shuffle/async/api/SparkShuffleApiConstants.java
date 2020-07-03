@@ -28,6 +28,15 @@ public final class SparkShuffleApiConstants {
   public static final String SHUFFLE_PLUGIN_APP_NAME_CONF_DEPRECATED =
       "spark.plugin.shuffle.async.appName";
 
+  public static final String SHUFFLE_PLUGIN_ENCRYPTION_ENABLED =
+      "spark.plugin.shuffle.async.encryption.enabled";
+  public static final String SHUFFLE_PLUGIN_ENCRYPTION_ALGORITHM =
+      "spark.plugin.shuffle.async.encryption.algorithm";
+  public static final String SHUFFLE_PLUGIN_ENCRYPTION_PUBLIC_KEY_PATH =
+      "spark.plugin.shuffle.async.encryption.public";
+  public static final String SHUFFLE_PLUGIN_ENCRYPTION_PRIVATE_KEY_PATH =
+      "spark.plugin.shuffle.async.encryption.private";
+
   public static final String SHUFFLE_S3A_CREDS_FILE_CONF =
       "spark.shuffle.hadoop.async.s3a.credsFile";
   public static final String SHUFFLE_S3A_CREDS_FILE_CONF_DEPRECATED =

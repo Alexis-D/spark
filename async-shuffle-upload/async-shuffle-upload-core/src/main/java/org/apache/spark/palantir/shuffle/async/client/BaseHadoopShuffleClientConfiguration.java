@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.KeyPair;
 import java.util.Optional;
 
 import org.apache.hadoop.conf.Configuration;
@@ -39,6 +40,7 @@ import org.apache.spark.palantir.shuffle.async.api.SparkShuffleAwsCredentials;
 import org.apache.spark.palantir.shuffle.async.immutables.ImmutablesStyle;
 import org.apache.spark.palantir.shuffle.async.s3a.ConscryptS3ClientFactory;
 
+import org.apache.spark.palantir.shuffle.async.util.KeyPairs;
 import org.immutables.value.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,8 +89,8 @@ public interface BaseHadoopShuffleClientConfiguration {
     Optional<String> credentialsFilename =
         OptionConverters.toJava(sparkConf.get(AsyncShuffleDataIoSparkConfigs.S3A_CREDS_FILE()));
 
-    Preconditions.checkNotNull(
-        credentialsFilename,
+    Preconditions.checkArgument(
+        credentialsFilename != null && credentialsFilename.isPresent(),
         "Expected spark config to be set",
         SafeArg.of("config", AsyncShuffleDataIoSparkConfigs.S3A_CREDS_FILE().key()));
     try {
@@ -104,9 +106,41 @@ public interface BaseHadoopShuffleClientConfiguration {
     }
   }
 
+  @Value.Check
+  default void check() {
+    if (encryptionEnabled()) {
+      Preconditions.checkArgument(keyPair().isPresent(), "Encryption can only be enabled if a key pair is supplied");
+    }
+  }
+
   @Value.Derived
   default JavaSparkConf javaSparkConf() {
     return new JavaSparkConf(sparkConf());
+  }
+
+  @Value.Derived
+  default boolean encryptionEnabled() {
+    return javaSparkConf().getBoolean(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_ENABLED());
+  }
+
+  @Value.Derived
+  default Optional<KeyPair> keyPair() {
+    String algorithm = javaSparkConf().get(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_ALGORITHM());
+    Optional<String> publicKeyPath = OptionConverters.toJava(
+        javaSparkConf().get(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_PUBLIC_KEY_PATH()));
+    Optional<String> privateKeyPath = OptionConverters.toJava(
+        javaSparkConf().get(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_PRIVATE_KEY_PATH()));
+
+    Preconditions.checkArgument(
+        publicKeyPath.isPresent() == privateKeyPath.isPresent(),
+        "Encryption config is incomplete, a complete key pair is required");
+
+    if (publicKeyPath.isPresent() && privateKeyPath.isPresent()) {
+      KeyPair keyPair = KeyPairs.fromPaths(Paths.get(publicKeyPath.get()), Paths.get(privateKeyPath.get()), algorithm);
+      return Optional.of(keyPair);
+    }
+
+    return Optional.empty();
   }
 
   @Value.Derived
